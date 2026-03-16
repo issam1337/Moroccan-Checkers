@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Damas Españolas</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Crimson+Text:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --gold: #c8960c;
+    --gold-dim: #8a6020;
+    --dark-bg: #0e0804;
+    --panel-bg: rgba(255,210,100,0.06);
+    --board-dark: #3d1a02;
+    --board-light: #c4935a;
+    --board-border: #5a2d00;
+    --red-base: #8b0000;
+    --red-high: #d94040;
+    --ivory-base: #c8b090;
+    --ivory-high: #f8f0e0;
+    --sq: 68px;
+  }
+
+  body {
+    background: radial-gradient(ellipse at 50% 30%, #1c0e04 0%, var(--dark-bg) 70%);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 24px 12px 32px;
+    color: #e8d5b0;
+    font-family: 'Crimson Text', Georgia, serif;
+    user-select: none;
+  }
+
+  /* ── HEADER ── */
+  .header { text-align: center; margin-bottom: 18px; }
+
+  .title {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(1.4rem, 4vw, 2rem);
+    font-weight: 900;
+    letter-spacing: 0.35em;
+    color: var(--gold);
+    text-shadow: 0 0 28px rgba(200,150,12,0.45), 0 2px 4px rgba(0,0,0,0.8);
+  }
+
+  .subtitle {
+    font-style: italic;
+    font-size: 0.85rem;
+    letter-spacing: 0.18em;
+    color: var(--gold-dim);
+    margin-top: 2px;
+  }
+
+  /* ── STATUS BAR ── */
+  .status-bar {
+    font-family: 'Cinzel', serif;
+    font-size: 0.78rem;
+    letter-spacing: 0.12em;
+    color: #e8d5b0;
+    background: var(--panel-bg);
+    border: 1px solid rgba(200,150,12,0.25);
+    border-radius: 3px;
+    padding: 8px 28px;
+    margin-bottom: 14px;
+    text-align: center;
+    min-width: 320px;
+    min-height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .status-dot {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+
+  /* ── BOARD WRAPPER ── */
+  .board-outer {
+    background: linear-gradient(145deg, #2a1408, #180a02);
+    padding: 14px;
+    border-radius: 4px;
+    border: 3px solid var(--board-border);
+    box-shadow:
+      0 12px 48px rgba(0,0,0,0.85),
+      0 4px 16px rgba(0,0,0,0.6),
+      inset 0 1px 0 rgba(200,140,50,0.18);
+    position: relative;
+  }
+
+  .board-frame {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .board-row-labels {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    padding: 0 6px 0 0;
+    height: calc(var(--sq) * 8);
+  }
+
+  .board-col-labels {
+    display: flex;
+    justify-content: space-around;
+    width: calc(var(--sq) * 8);
+    padding: 5px 0 0;
+  }
+
+  .coord-label {
+    font-family: 'Cinzel', serif;
+    font-size: 0.62rem;
+    color: var(--gold-dim);
+    width: calc(var(--sq));
+    text-align: center;
+  }
+
+  .coord-label-r {
+    font-family: 'Cinzel', serif;
+    font-size: 0.62rem;
+    color: var(--gold-dim);
+    display: flex;
+    align-items: center;
+    height: var(--sq);
+  }
+
+  .board-with-labels {
+    display: flex;
+    align-items: flex-start;
+  }
+
+  /* ── BOARD ── */
+  #board {
+    display: grid;
+    grid-template-columns: repeat(8, var(--sq));
+    grid-template-rows: repeat(8, var(--sq));
+    border: 2px solid #2a1000;
+  }
+
+  .sq {
+    width: var(--sq);
+    height: var(--sq);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .sq.light { background: var(--board-light); }
+  .sq.dark  { background: var(--board-dark); }
+
+  .sq.can-select.dark:hover { background: #52260a; }
+
+  .sq.selected-sq { background: #6a3800 !important; }
+
+  .sq.landing {
+    cursor: pointer;
+  }
+  .sq.landing::after {
+    content: '';
+    position: absolute;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: rgba(255,220,50,0.45);
+    border: 2px solid rgba(255,210,30,0.6);
+    pointer-events: none;
+    animation: pulse-dot 1s ease-in-out infinite;
+  }
+  .sq.landing:hover::after {
+    background: rgba(255,230,80,0.65);
+  }
+
+  @keyframes pulse-dot {
+    0%,100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.15); opacity: 0.75; }
+  }
+
+  /* ── PIECES ── */
+  .piece {
+    width: 54px; height: 54px;
+    border-radius: 50%;
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.12s, box-shadow 0.2s;
+    z-index: 2;
+  }
+
+  .piece:hover { transform: scale(1.06); }
+
+  .piece.red-p {
+    background: radial-gradient(circle at 36% 32%, #e04444 0%, #a80000 45%, #600000 100%);
+    border: 2.5px solid #500000;
+    box-shadow:
+      0 5px 10px rgba(0,0,0,0.6),
+      inset 0 2px 4px rgba(255,120,120,0.25),
+      inset 0 -2px 4px rgba(0,0,0,0.3);
+  }
+
+  .piece.white-p {
+    background: radial-gradient(circle at 36% 32%, #fdf8ef 0%, #d4b880 45%, #9a7a48 100%);
+    border: 2.5px solid #806035;
+    box-shadow:
+      0 5px 10px rgba(0,0,0,0.6),
+      inset 0 2px 4px rgba(255,255,230,0.45),
+      inset 0 -2px 4px rgba(0,0,0,0.25);
+  }
+
+  .piece.selected-p {
+    box-shadow:
+      0 0 0 3px #ffd700,
+      0 6px 16px rgba(0,0,0,0.7),
+      inset 0 2px 4px rgba(255,200,50,0.2) !important;
+    transform: scale(1.05) translateY(-2px);
+  }
+
+  .piece.animate-in {
+    animation: piece-land 0.25s cubic-bezier(0.4,0,0.2,1);
+  }
+
+  @keyframes piece-land {
+    0% { transform: scale(1.2) translateY(-8px); opacity: 0.7; }
+    60% { transform: scale(0.95) translateY(2px); }
+    100% { transform: scale(1) translateY(0); opacity: 1; }
+  }
+
+  .crown {
+    font-size: 20px;
+    line-height: 1;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5));
+  }
+
+  .crown.red-crown   { color: #ffd700; }
+  .crown.white-crown { color: #5a3a00; }
+
+  /* ── SCOREBOARD ── */
+  .scoreboard {
+    display: flex;
+    gap: 28px;
+    margin-top: 14px;
+    justify-content: center;
+  }
+
+  .score-card {
+    background: var(--panel-bg);
+    border: 1px solid rgba(200,150,12,0.2);
+    border-radius: 4px;
+    padding: 8px 24px;
+    text-align: center;
+    min-width: 100px;
+  }
+
+  .score-label {
+    font-family: 'Cinzel', serif;
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    color: var(--gold-dim);
+    margin-bottom: 4px;
+  }
+
+  .score-num {
+    font-family: 'Cinzel', serif;
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--gold);
+    line-height: 1;
+  }
+
+  .score-detail {
+    font-size: 0.72rem;
+    color: #6a5028;
+    margin-top: 2px;
+  }
+
+  /* ── CONTROLS ── */
+  .controls {
+    display: flex;
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  .btn {
+    font-family: 'Cinzel', serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    color: var(--gold);
+    background: var(--panel-bg);
+    border: 1px solid rgba(200,150,12,0.35);
+    border-radius: 3px;
+    padding: 8px 22px;
+    cursor: pointer;
+    transition: background 0.18s, border-color 0.18s;
+  }
+
+  .btn:hover {
+    background: rgba(200,150,12,0.15);
+    border-color: rgba(200,150,12,0.6);
+  }
+
+  .btn.active {
+    background: rgba(200,150,12,0.2);
+    border-color: var(--gold);
+    color: #ffd700;
+  }
+
+  /* ── RULES PANEL ── */
+  .rules-toggle {
+    margin-top: 10px;
+    font-size: 0.72rem;
+    color: var(--gold-dim);
+    cursor: pointer;
+    letter-spacing: 0.08em;
+    text-align: center;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .rules-panel {
+    display: none;
+    background: var(--panel-bg);
+    border: 1px solid rgba(200,150,12,0.2);
+    border-radius: 4px;
+    padding: 14px 20px;
+    margin-top: 8px;
+    max-width: 580px;
+    font-size: 0.82rem;
+    line-height: 1.7;
+    color: #c8a870;
+  }
+
+  .rules-panel.open { display: block; }
+
+  .rules-panel h3 {
+    font-family: 'Cinzel', serif;
+    font-size: 0.75rem;
+    letter-spacing: 0.15em;
+    color: var(--gold);
+    margin-bottom: 8px;
+  }
+
+  .rules-panel li { margin-left: 18px; margin-bottom: 3px; }
+
+  /* ── OVERLAY ── */
+  .overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .overlay.show { display: flex; }
+
+  .overlay-box {
+    background: linear-gradient(145deg, #2a1408, #180a02);
+    border: 2px solid var(--gold);
+    border-radius: 6px;
+    padding: 40px 56px;
+    text-align: center;
+    box-shadow: 0 16px 64px rgba(0,0,0,0.9);
+    animation: pop-in 0.35s cubic-bezier(0.34,1.56,0.64,1);
+  }
+
+  @keyframes pop-in {
+    from { transform: scale(0.7); opacity: 0; }
+    to   { transform: scale(1);   opacity: 1; }
+  }
+
+  .overlay-title {
+    font-family: 'Cinzel', serif;
+    font-size: 1.6rem;
+    font-weight: 900;
+    color: var(--gold);
+    letter-spacing: 0.2em;
+    margin-bottom: 8px;
+  }
+
+  .overlay-sub {
+    font-style: italic;
+    color: #c8a870;
+    margin-bottom: 24px;
+  }
+
+  @media (max-width: 600px) {
+    :root { --sq: 44px; }
+    .score-card { padding: 6px 14px; }
+    .status-bar { min-width: 200px; font-size: 0.7rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="title">DAMAS ESPAÑOLAS</div>
+  <div class="subtitle">Spanish Draughts</div>
+</div>
+
+<div class="status-bar" id="statusBar">
+  <span class="status-dot" id="statusDot"></span>
+  <span id="statusText">Loading…</span>
+</div>
+
+<div class="board-outer">
+  <div class="board-frame">
+    <div class="board-with-labels">
+      <div class="board-row-labels" id="rowLabels"></div>
+      <div id="board"></div>
+    </div>
+    <div class="board-col-labels" id="colLabels"></div>
+  </div>
+</div>
+
+<div class="scoreboard">
+  <div class="score-card">
+    <div class="score-label" style="color:#c05050">● RED — YOU</div>
+    <div class="score-num" id="redCount">12</div>
+    <div class="score-detail" id="redKings">0 kings</div>
+  </div>
+  <div class="score-card">
+    <div class="score-label" style="color:#c09050">● WHITE — AI</div>
+    <div class="score-num" id="whiteCount">12</div>
+    <div class="score-detail" id="whiteKings">0 kings</div>
+  </div>
+</div>
+
+<div class="controls">
+  <button class="btn" id="btnNew">NEW GAME</button>
+  <button class="btn active" id="btnAI">AI ON</button>
+</div>
+
+<div class="rules-toggle" id="rulesToggle">▸ Spanish Draughts Rules</div>
+<div class="rules-panel" id="rulesPanel">
+  <h3>SPANISH DRAUGHTS — KEY RULES</h3>
+  <ul>
+    <li><b>Board:</b> 8×8, pieces on dark squares. Red (you) at bottom, White (AI) at top.</li>
+    <li><b>Men:</b> Move and capture <em>forward only</em> (diagonally).</li>
+    <li><b>Kings (♛):</b> Flying kings — move any number of squares diagonally in any direction.</li>
+    <li><b>Promotion:</b> A man reaching the last row becomes a king. Sequence ends on promotion.</li>
+    <li><b>Mandatory capture:</b> You <em>must</em> capture if possible.</li>
+    <li><b>Majority rule:</b> You must take the <em>maximum</em> number of pieces.</li>
+    <li><b>Quality rule:</b> If counts are equal, a king must capture instead of a man.</li>
+    <li><b>Multi-jump:</b> After capturing, continue if more captures are available.</li>
+  </ul>
+</div>
+
+<!-- Game Over Overlay -->
+<div class="overlay" id="overlay">
+  <div class="overlay-box">
+    <div class="overlay-title" id="overlayTitle">WHITE WINS</div>
+    <div class="overlay-sub" id="overlaySub">No moves remaining for Red</div>
+    <button class="btn" id="btnOverlayNew">PLAY AGAIN</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  SPANISH DRAUGHTS — Full Implementation
+// ═══════════════════════════════════════════════════════════
+
+const RED = 'red', WHITE = 'white';
+const N = 8;
+
+// ── State ──────────────────────────────────────────────────
+let board = [];       // board[r][c] = null | { color, isKing }
+let curPlayer = RED;
+let selected = null;  // {r,c}
+let piecesMoves = []; // valid moves for selected piece
+let allMoves = [];    // all valid moves for curPlayer
+let gameOver = false;
+let aiEnabled = true;
+let aiThinking = false;
+
+// ── Helpers ────────────────────────────────────────────────
+const inB = (r,c) => r>=0 && r<N && c>=0 && c<N;
+const isDark = (r,c) => (r+c)%2 === 0;
+const clone = b => b.map(row => row.map(c => c ? {...c} : null));
+
+// ── Init ───────────────────────────────────────────────────
+function initBoard() {
+  const b = Array.from({length:N}, () => Array(N).fill(null));
+  for (let r=0; r<3; r++)
+    for (let c=0; c<N; c++)
+      if (isDark(r,c)) b[r][c] = {color:WHITE, isKing:false};
+  for (let r=5; r<N; r++)
+    for (let c=0; c<N; c++)
+      if (isDark(r,c)) b[r][c] = {color:RED, isKing:false};
+  return b;
+}
+
+// ── Move Generation ────────────────────────────────────────
+
+function captureDirs(piece) {
+  if (piece.isKing) return [[-1,-1],[-1,1],[1,-1],[1,1]];
+  // Spanish: men capture FORWARD only
+  return piece.color === RED ? [[-1,-1],[-1,1]] : [[1,-1],[1,1]];
+}
+
+function moveDirs(piece) {
+  if (piece.isKing) return [[-1,-1],[-1,1],[1,-1],[1,1]];
+  return piece.color === RED ? [[-1,-1],[-1,1]] : [[1,-1],[1,1]];
+}
+
+// Returns [ { steps:[{r,c}…], cap:Set<"r,c"> } ]
+// `cap` = already-captured squares in this sequence
+function captureSeqs(b, r, c, piece, cap) {
+  const dirs = captureDirs(piece);
+  const res = [];
+
+  if (piece.isKing) {
+    for (const [dr,dc] of dirs) {
+      // Scan for opponent (skip empty & ghost squares)
+      let sr = r+dr, sc = c+dc;
+      while (inB(sr,sc) && (!b[sr][sc] || cap.has(`${sr},${sc}`))) { sr+=dr; sc+=dc; }
+      if (!inB(sr,sc)) continue;
+      const tgt = b[sr][sc];
+      if (!tgt || tgt.color===piece.color || cap.has(`${sr},${sc}`)) continue;
+
+      const capKey = `${sr},${sc}`;
+      const newCap = new Set(cap); newCap.add(capKey);
+
+      // Land on any empty square past the captured piece
+      let lr=sr+dr, lc=sc+dc;
+      while (inB(lr,lc)) {
+        const cell = b[lr][lc];
+        // Live (non-captured) piece blocks further scanning
+        if (cell && !newCap.has(`${lr},${lc}`)) break;
+        // Only land on truly empty squares (not ghost)
+        if (!cell) {
+          const sub = captureSeqs(b, lr, lc, piece, newCap);
+          if (sub.length) {
+            sub.forEach(s => res.push({ steps:[{r:lr,c:lc},...s.steps], cap:s.cap }));
+          } else {
+            res.push({ steps:[{r:lr,c:lc}], cap:newCap });
+          }
+        }
+        lr+=dr; lc+=dc;
+      }
+    }
+  } else {
+    // Man
+    for (const [dr,dc] of dirs) {
+      const mr=r+dr, mc=c+dc;
+      const lr=r+2*dr, lc=c+2*dc;
+      if (!inB(mr,mc)||!inB(lr,lc)) continue;
+      const mid = b[mr][mc];
+      if (!mid||mid.color===piece.color||cap.has(`${mr},${mc}`)) continue;
+      if (b[lr][lc]&&!cap.has(`${lr},${lc}`)) continue;
+
+      const capKey = `${mr},${mc}`;
+      const newCap = new Set(cap); newCap.add(capKey);
+
+      // Promotion ends the sequence
+      const promoted = (piece.color===RED&&lr===0)||(piece.color===WHITE&&lr===7);
+      if (!promoted) {
+        const sub = captureSeqs(b, lr, lc, piece, newCap);
+        if (sub.length) {
+          sub.forEach(s => res.push({ steps:[{r:lr,c:lc},...s.steps], cap:s.cap }));
+          continue;
+        }
+      }
+      res.push({ steps:[{r:lr,c:lc}], cap:newCap });
+    }
+  }
+  return res;
+}
+
+// Get all legal moves for a player
+function getAllMoves(b, player) {
+  const captures = [], simples = [];
+  let maxCap = 0;
+
+  for (let r=0; r<N; r++) {
+    for (let c=0; c<N; c++) {
+      const piece = b[r][c];
+      if (!piece||piece.color!==player) continue;
+
+      // Capture moves
+      const seqs = captureSeqs(b, r, c, piece, new Set());
+      for (const seq of seqs) {
+        const cnt = seq.cap.size;
+        const mv = { fromR:r, fromC:c, steps:seq.steps, cap:seq.cap, isCapture:true, isKing:piece.isKing };
+        captures.push(mv);
+        if (cnt>maxCap) maxCap=cnt;
+      }
+
+      // Simple moves (only used if no captures at all)
+      if (piece.isKing) {
+        for (const [dr,dc] of moveDirs(piece)) {
+          let nr=r+dr, nc=c+dc;
+          while (inB(nr,nc)&&!b[nr][nc]) {
+            simples.push({ fromR:r, fromC:c, steps:[{r:nr,c:nc}], cap:new Set(), isCapture:false, isKing:true });
+            nr+=dr; nc+=dc;
+          }
+        }
+      } else {
+        for (const [dr,dc] of moveDirs(piece)) {
+          const nr=r+dr, nc=c+dc;
+          if (inB(nr,nc)&&!b[nr][nc])
+            simples.push({ fromR:r, fromC:c, steps:[{r:nr,c:nc}], cap:new Set(), isCapture:false, isKing:false });
+        }
+      }
+    }
+  }
+
+  if (captures.length) {
+    // Majority rule: max captures only
+    const maxMoves = captures.filter(m => m.cap.size===maxCap);
+    // Quality rule: king preferred over man (same cap count)
+    const kingMoves = maxMoves.filter(m => m.isKing);
+    return kingMoves.length ? kingMoves : maxMoves;
+  }
+  return simples;
+}
+
+// Apply a move, return new board
+function applyMove(b, mv) {
+  const nb = clone(b);
+  const piece = nb[mv.fromR][mv.fromC];
+  const last = mv.steps[mv.steps.length-1];
+
+  nb[mv.fromR][mv.fromC] = null;
+  nb[last.r][last.c] = {...piece};
+
+  // Remove captured
+  for (const key of mv.cap) {
+    const [r,c] = key.split(',').map(Number);
+    nb[r][c] = null;
+  }
+
+  // Promotion
+  if (!piece.isKing) {
+    if ((piece.color===RED&&last.r===0)||(piece.color===WHITE&&last.r===7))
+      nb[last.r][last.c].isKing = true;
+  }
+  return nb;
+}
+
+// ── AI (Minimax α-β, depth 4) ──────────────────────────────
+
+function evaluate(b) {
+  let s = 0;
+  for (let r=0; r<N; r++)
+    for (let c=0; c<N; c++) {
+      const p = b[r][c];
+      if (!p) continue;
+      const base = p.isKing ? 5 : 1;
+      // Advance bonus for men
+      const advance = p.isKing ? 0 : (p.color===WHITE ? r*0.12 : (7-r)*0.12);
+      // Center control
+      const center = (Math.abs(3.5-r)+Math.abs(3.5-c)) * -0.05;
+      const val = base + advance + center;
+      s += p.color===WHITE ? val : -val;
+    }
+  return s;
+}
+
+function minimax(b, depth, alpha, beta, maxing) {
+  const player = maxing ? WHITE : RED;
+  const moves = getAllMoves(b, player);
+  if (depth===0||moves.length===0) return evaluate(b);
+
+  if (maxing) {
+    let best = -Infinity;
+    for (const mv of moves) {
+      best = Math.max(best, minimax(applyMove(b,mv), depth-1, alpha, beta, false));
+      alpha = Math.max(alpha, best);
+      if (beta<=alpha) break;
+    }
+    return best;
+  } else {
+    let best = Infinity;
+    for (const mv of moves) {
+      best = Math.min(best, minimax(applyMove(b,mv), depth-1, alpha, beta, true));
+      beta = Math.min(beta, best);
+      if (beta<=alpha) break;
+    }
+    return best;
+  }
+}
+
+function bestAIMove() {
+  const moves = getAllMoves(board, WHITE);
+  if (!moves.length) return null;
+  let bestVal=-Infinity, best=[];
+  for (const mv of moves) {
+    const v = minimax(applyMove(board,mv), 3, -Infinity, Infinity, false);
+    if (v>bestVal) { bestVal=v; best=[mv]; }
+    else if (v===bestVal) best.push(mv);
+  }
+  return best[Math.floor(Math.random()*best.length)];
+}
+
+// ── Rendering ──────────────────────────────────────────────
+
+function render() {
+  const boardEl = document.getElementById('board');
+  boardEl.innerHTML = '';
+
+  // Collect landing squares
+  const landings = new Set();
+  if (selected) piecesMoves.forEach(m => {
+    const last = m.steps[m.steps.length-1];
+    landings.add(`${last.r},${last.c}`);
+  });
+
+  // Pieces that CAN be selected
+  const selectables = new Set(allMoves.map(m=>`${m.fromR},${m.fromC}`));
+
+  for (let r=0; r<N; r++) {
+    for (let c=0; c<N; c++) {
+      const sq = document.createElement('div');
+      sq.className = `sq ${isDark(r,c)?'dark':'light'}`;
+
+      const isSel = selected && selected.r===r && selected.c===c;
+      const isLand = landings.has(`${r},${c}`);
+      const canSel = selectables.has(`${r},${c}`) && curPlayer===RED && !aiThinking && !gameOver;
+
+      if (isSel) sq.classList.add('selected-sq');
+      if (isLand) sq.classList.add('landing');
+      if (canSel && !isSel) sq.classList.add('can-select');
+
+      const piece = board[r][c];
+      if (piece) {
+        const p = document.createElement('div');
+        p.className = `piece ${piece.color===RED?'red-p':'white-p'}`;
+        if (isSel) p.classList.add('selected-p');
+
+        if (piece.isKing) {
+          const cr = document.createElement('span');
+          cr.className = `crown ${piece.color===RED?'red-crown':'white-crown'}`;
+          cr.textContent = '♛';
+          p.appendChild(cr);
+        }
+        sq.appendChild(p);
+      }
+
+      sq.addEventListener('click', () => handleClick(r,c));
+      boardEl.appendChild(sq);
+    }
+  }
+
+  // Counts
+  let rc=0, wc=0, rk=0, wk=0;
+  for (let r=0; r<N; r++) for (let c=0; c<N; c++) {
+    const p=board[r][c]; if(!p) continue;
+    if (p.color===RED) { rc++; if(p.isKing) rk++; }
+    else { wc++; if(p.isKing) wk++; }
+  }
+  document.getElementById('redCount').textContent = rc;
+  document.getElementById('whiteCount').textContent = wc;
+  document.getElementById('redKings').textContent = rk===1?'1 king':rk+' kings';
+  document.getElementById('whiteKings').textContent = wk===1?'1 king':wk+' kings';
+
+  updateStatus();
+}
+
+function updateStatus() {
+  const dot = document.getElementById('statusDot');
+  const txt = document.getElementById('statusText');
+
+  if (gameOver) return;
+
+  if (aiThinking) {
+    dot.style.background = '#c09050';
+    txt.textContent = 'AI is thinking…';
+    return;
+  }
+
+  if (curPlayer===RED) {
+    dot.style.background = '#c04040';
+    const needsCap = allMoves.length && allMoves[0].isCapture;
+    txt.textContent = needsCap ? 'Your turn — CAPTURE REQUIRED' : 'Your turn — Red';
+  } else {
+    dot.style.background = '#c09050';
+    txt.textContent = 'White (AI) turn…';
+  }
+}
+
+function showGameOver(winner, reason) {
+  const overlay = document.getElementById('overlay');
+  document.getElementById('overlayTitle').textContent =
+    winner===RED ? 'RED WINS!' : 'WHITE WINS!';
+  document.getElementById('overlaySub').textContent = reason;
+  overlay.classList.add('show');
+
+  const dot = document.getElementById('statusDot');
+  const txt = document.getElementById('statusText');
+  dot.style.background = winner===RED ? '#c04040' : '#c09050';
+  txt.textContent = winner===RED ? 'Red wins!' : 'White (AI) wins!';
+}
+
+// ── Input Handling ─────────────────────────────────────────
+
+function handleClick(r, c) {
+  if (gameOver || aiThinking || curPlayer!==RED) return;
+
+  // Try to execute move if landing square clicked
+  if (selected) {
+    const mv = piecesMoves.find(m => {
+      const last = m.steps[m.steps.length-1];
+      return last.r===r && last.c===c;
+    });
+    if (mv) { doMove(mv); return; }
+  }
+
+  // Select a piece
+  const piece = board[r][c];
+  if (piece && piece.color===RED) {
+    const mvs = allMoves.filter(m=>m.fromR===r&&m.fromC===c);
+    if (mvs.length) {
+      selected = {r,c};
+      piecesMoves = mvs;
+      render();
+      return;
+    }
+  }
+
+  // Deselect
+  selected = null;
+  piecesMoves = [];
+  render();
+}
+
+function doMove(mv) {
+  board = applyMove(board, mv);
+  selected = null; piecesMoves = [];
+  curPlayer = curPlayer===RED ? WHITE : RED;
+  allMoves = getAllMoves(board, curPlayer);
+
+  if (!allMoves.length) {
+    gameOver = true;
+    render();
+    const winner = curPlayer===RED ? WHITE : RED;
+    const loser = curPlayer===RED ? 'Red' : 'White';
+    showGameOver(winner, `${loser} has no legal moves`);
+    return;
+  }
+  render();
+
+  if (curPlayer===WHITE && aiEnabled) {
+    aiThinking = true;
+    updateStatus();
+    setTimeout(doAI, 400);
+  }
+}
+
+function doAI() {
+  const mv = bestAIMove();
+  aiThinking = false;
+  if (!mv) {
+    gameOver = true;
+    render();
+    showGameOver(RED, 'White has no legal moves');
+    return;
+  }
+  doMove(mv);
+}
+
+// ── Game Control ───────────────────────────────────────────
+
+function newGame() {
+  board = initBoard();
+  curPlayer = RED;
+  selected = null; piecesMoves = [];
+  gameOver = false; aiThinking = false;
+  allMoves = getAllMoves(board, RED);
+  document.getElementById('overlay').classList.remove('show');
+  render();
+}
+
+// ── Board Labels ───────────────────────────────────────────
+
+function buildLabels() {
+  const rows = document.getElementById('rowLabels');
+  const cols = document.getElementById('colLabels');
+  for (let r=0; r<N; r++) {
+    const el = document.createElement('div');
+    el.className = 'coord-label-r';
+    el.textContent = 8-r;
+    rows.appendChild(el);
+  }
+  const letters = 'abcdefgh';
+  for (let c=0; c<N; c++) {
+    const el = document.createElement('div');
+    el.className = 'coord-label';
+    el.textContent = letters[c];
+    cols.appendChild(el);
+  }
+}
+
+// ── Events ─────────────────────────────────────────────────
+
+document.getElementById('btnNew').addEventListener('click', newGame);
+
+document.getElementById('btnAI').addEventListener('click', function() {
+  aiEnabled = !aiEnabled;
+  this.textContent = aiEnabled ? 'AI ON' : 'AI OFF';
+  this.classList.toggle('active', aiEnabled);
+});
+
+document.getElementById('btnOverlayNew').addEventListener('click', newGame);
+
+document.getElementById('rulesToggle').addEventListener('click', function() {
+  const panel = document.getElementById('rulesPanel');
+  panel.classList.toggle('open');
+  this.textContent = panel.classList.contains('open') ? '▾ Spanish Draughts Rules' : '▸ Spanish Draughts Rules';
+});
+
+// ── Start ──────────────────────────────────────────────────
+buildLabels();
+newGame();
+</script>
+</body>
+</html>
